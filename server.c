@@ -133,6 +133,14 @@ void *protocol_main(void *arg)
     logutil_info("disconnected");
 }
 
+/* クリーンアップハンドラー */
+void cleanup(void *arg)
+{
+    struct entry *entry = (struct entry *)arg;
+    logutil_info("cancel");
+    free(entry);
+}
+
 /* ワーカー*/
 void *worker(void *arg)
 {
@@ -142,7 +150,9 @@ void *worker(void *arg)
     for (;;)
     {
         entry = list_dequeue(list);
+        pthread_cleanup_push(cleanup, entry);
         (*entry->func)(entry->data);
+        pthread_cleanup_pop(1);
     }
 }
 
@@ -247,6 +257,11 @@ int main(int argc, char **argv)
     }
 
     main_loop(sock, list);
+
+    for (int i = 0; i < THREAD_POOL_NUM; i++)
+    {
+        pthread_cancel(work[i]);
+    }
 
     for (int i = 0; i < THREAD_POOL_NUM; i++)
     {
